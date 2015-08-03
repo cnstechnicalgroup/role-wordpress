@@ -1,0 +1,52 @@
+---
+- name: Install git
+  apt: pkg={{ item }} state=latest update_cache=true
+  with_items:
+    - git
+
+- name: Add system group
+  group: name="{{ system_group }}"
+
+- name: Add system user
+  user: name="{{ system_user }}" group="{{ system_group }}" home="/home/{{ system_user }}"
+
+- name: Ensure .ssh directory exists
+  file: path="/home/{{ system_user }}/.ssh" state=directory mode=0700 owner="{{ system_user }}" group="{{ system_group }}"
+
+- name: Copy aws deploy key
+  action: copy src="{{ wordpress_deploy_key }}" dest="/home/{{ system_user }}/.ssh/id_rsa" owner="{{ system_user }}" group="{{ system_group }}" mode=0600
+
+- name: gitconfig template
+  template: src=gitconfig.j2 dest="/home/{{ system_user }}/.gitconfig" owner="{{ system_user }}" group="{{ system_group }}"
+
+- name: Create installation folder (web_root)
+  file: path="{{ web_root }}" owner="{{ system_user }}" group="{{ system_group }}" state=directory recurse=yes mode='u=rwX,g=rwX,o=rX'
+
+- name: git checkout repository for site
+  git: repo="{{ gitrepo }}"
+       dest="{{ web_root }}"
+       ssh_opts="-o StrictHostKeyChecking=no -vvvv"
+       accept_hostkey=True
+       force=yes
+  sudo: yes
+  sudo_user: "{{ system_user }}"
+
+- name: Create app config file
+  template: src=wp-config.php.j2 dest="{{ web_root }}/wp-config.php" owner="{{ system_user }}" group="{{ system_group }}"
+
+- name: Ensure wp-content/w3tc-config directory exists
+  file: path="{{ web_root }}/wp-content/w3tc-config" state=directory mode=0755 owner="{{ system_user }}" group="{{ system_group }}"
+
+- name: Create w3 Total Cache master config file
+  template: src=master.php.j2 dest="{{ web_root }}/wp-content/w3tc-config/master.php" owner="{{ system_user }}" group="{{ system_group }}"
+
+- name: Create w3 Total Cache masteri-admin config file
+  template: src=master.php.j2 dest="{{ web_root }}/wp-content/w3tc-config/master-admin.php" owner="{{ system_user }}" group="{{ system_group }}"
+
+- name: Copy post_receive.php as github post receive webhook
+  template: src=post_receive.php.j2 dest="{{ web_root }}/post_receive.php" owner="{{ system_user }}" group="{{ system_group }}"
+
+- name: Ensure writable directories
+  file: dest="{{ item }}" state=directory mode=0775 recurse=yes owner="{{ system_user }}" group="{{ system_group }}"
+  with_items:
+    - "{{ web_root }}/wp-content"
