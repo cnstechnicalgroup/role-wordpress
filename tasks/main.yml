@@ -50,3 +50,14 @@
   file: dest="{{ item }}" state=directory mode=0775 recurse=yes owner="{{ system_user }}" group="{{ system_group }}"
   with_items:
     - "{{ web_root }}/wp-content"
+
+- name: Copy site robots.txt
+  copy: src="robots.txt" dest="{{ web_root }}/robots.txt" owner="{{ system_user }}" group="{{ system_group }}"
+  tags:
+    - robotstxt
+
+- name: Add Disallow / for dev sites
+  lineinfile: "dest={{ web_root }}/robots.txt regexp='^Disallow: /$' line='Disallow: /' insertafter='^User-agent'"
+  when: mode == "dev"
+  tags:
+    - robotstxt
