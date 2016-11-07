@@ -64,6 +64,14 @@ define('NONCE_SALT',       '{{wp_config_none_salt}}');
 
 /**#@-*/
 
+/** Config Extras */
+{% if wp_define_extras is defined %}
+# Loop all wp_define_extras from vars (see README.md)
+{% for define_extra in wp_define_extras %}
+define({{ define_extra }});
+{% endfor %}
+{% endif %}
+
 /**
  * WordPress Database Table prefix.
  *
