@@ -1,6 +1,6 @@
 <?php
   // git commit server-side changes
-  $whitelist = array({{ git_whitelist }});
+  include('whitelist.php');
   if (in_array($_SERVER['HTTP_X_FORWARDED_FOR'], $whitelist)) {
     require_once('Git.php');
     $repo = Git::open('{{ web_root }}');
@@ -9,7 +9,7 @@
     $repo->add('wp-content/plugins');
     $repo->add('wp-content/themes');
     $repo->commit('Commiting file modifications / additions');
-    $repo->push('origin', 'master');
+    $repo->push('origin', '{{ git_branch }}');
     echo $repo->status(true);
   }
 ?>
