@@ -3,6 +3,13 @@
   apt: pkg={{ item }} state=latest update_cache=true
   with_items:
     - git
+  when: mode == 'dev'
+
+- name: Install mysql client tools
+  apt: pkg={{ item }} state=latest update_cache=true
+  with_items:
+    - mysql-client
+  when: mode == 'stage'
 
 - name: Add system group
   group: name="{{ system_group }}"
@@ -10,14 +17,24 @@
 - name: Add system user
   user: name="{{ system_user }}" group="{{ system_group }}" home="/home/{{ system_user }}"
 
+- name: Configure ~/.my.cnf
+  template: src=my.cnf.j2 dest="/home/{{ system_user }}/.my.cnf" owner="{{ system_user }}" group="{{ system_group }}"
+
 - name: Ensure .ssh directory exists
   file: path="/home/{{ system_user }}/.ssh" state=directory mode=0700 owner="{{ system_user }}" group="{{ system_group }}"
+  when: mode == 'dev'
+
+- name: Ensure ~/wpconfigs directory exists
+  file: path="/home/{{ system_user }}/wpconfigs" state=directory mode=0700 owner="{{ system_user }}" group="{{ system_group }}"
+  when: mode == 'stage'
 
 - name: Copy aws deploy key
   action: copy src="{{ wordpress_deploy_key }}" dest="/home/{{ system_user }}/.ssh/id_rsa" owner="{{ system_user }}" group="{{ system_group }}" mode=0600
+  when: mode == 'dev'
 
 - name: gitconfig template
   template: src=gitconfig.j2 dest="/home/{{ system_user }}/.gitconfig" owner="{{ system_user }}" group="{{ system_group }}"
+  when: mode == 'dev'
 
 - name: Create installation folder (web_root)
   file: path="{{ web_root }}" owner="{{ system_user }}" group="{{ system_group }}" state=directory recurse=yes mode='u=rwX,g=rwX,o=rX'
@@ -30,6 +47,7 @@
        accept_hostkey=True
        force=true
        key_file="/home/{{ system_user }}/.ssh/id_rsa"
+  when: mode == 'dev'
 
 - name: chown web files to system user
   file:
@@ -37,16 +55,39 @@
     recurse: yes
     owner: "{{ system_user }}"
     group: "{{ system_user }}"
+  when: mode == 'dev'
 
-- name: Create app config file
+- name: Create app config file (stage / prod)
+  template:
+    src: wp-config.php.j2
+    dest: "/home/{{ system_user }}/wpconfigs/wp-config-{{ item.key }}.php"
+    owner: "{{ system_user }}"
+    group: "{{ system_group }}"
+  with_dict: "{{ db_hosts }}"
+  when: db_hosts is defined 
+
+- name: Copy CloudFront invalidation batch json
+  action: copy src=invalidation_batch.json dest="/home/{{ system_user }}/invalidation_batch.json" owner="{{ system_user }}" group="{{ system_group }}"
+
+- name: Create app config file (dev)
   template: src=wp-config.php.j2 dest="{{ web_root }}/wp-config.php" owner="{{ system_user }}" group="{{ system_group }}"
+  when: mode != "stage"
 
 - name: Ensure wp-content/w3tc-config directory exists
   file: path="{{ web_root }}/wp-content/w3tc-config" state=directory mode=0755 owner="{{ system_user }}" group="{{ system_group }}"
 
+- name: Create w3tc config file (stage / prod)
+  template:
+    src: w3tc-config_master.json.j2 
+    dest: "/home/{{ system_user }}/wpconfigs/master-{{ item.key }}.json"
+    owner: "{{ system_user }}"
+    group: "{{ system_group }}"
+  with_dict: "{{ cdn_options }}"
+  when: cdn_options is defined 
+
 - name: Create w3 Total Cache master config file
   template: src=master.php.j2 dest="{{ web_root }}/wp-content/w3tc-config/master.php" owner="{{ system_user }}" group="{{ system_group }}"
-  when: aws_s3_access_key is defined
+  when: aws_s3_access_key is defined and mode == 'dev'
 
 - name: Create w3 Total Cache masteri-admin config file
   template: src=master.php.j2 dest="{{ web_root }}/wp-content/w3tc-config/master-admin.php" owner="{{ system_user }}" group="{{ system_group }}"
@@ -54,14 +95,17 @@
 
 - name: Copy post-receive.php as github post receive webhook
   template: src=post-receive.php.j2 dest="{{ web_root }}/post-receive.php" owner="{{ system_user }}" group="{{ system_group }}"
+  when: mode == 'dev'
 
 - name: Ensure uploads directory exists
   file: path="{{ web_root }}/wp-content/uploads" state=directory mode=0775 owner="{{ system_user }}" group="{{ system_group }}"
+  when: mode == 'dev'
 
 - name: Ensure writable directories
   file: dest="{{ item }}" state=directory mode=0775 recurse=yes owner="{{ system_user }}" group="{{ system_group }}"
   with_items:
     - "{{ web_root }}/wp-content"
+  when: mode == 'dev'
     
 - name: Copy Git.php script. Required for git-status.php and git-commit.php
   copy: src="Git.php" dest="{{ web_root }}/Git.php" owner="{{ system_user }}" group="{{ system_group }}"

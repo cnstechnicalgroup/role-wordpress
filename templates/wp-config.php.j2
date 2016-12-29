@@ -32,7 +32,11 @@ define('DB_USER', '{{ wp_db_user }}');
 define('DB_PASSWORD', '{{ wp_db_password }}');
 
 /** MySQL hostname */
+{% if item %}
+define('DB_HOST', '{{ item.value }}');
+{% else %}
 define('DB_HOST', '{{ wp_db_host }}');
+{% endif %}
 
 /** Database Charset to use in creating database tables. */
 define('DB_CHARSET', 'utf8');
@@ -40,8 +44,13 @@ define('DB_CHARSET', 'utf8');
 /** The Database Collate type. Don't change this if in doubt. */
 define('DB_COLLATE', '');
 
+{% if item is defined and item.key == 'stage' %}
+define('WP_SITEURL', '{{ "https" if use_ssl else "http" }}://{{ site_public_url_stage }}');
+define('WP_HOME', '{{ "https" if use_ssl else "http" }}://{{ site_public_url_stage }}');
+{% else %}
 define('WP_SITEURL', '{{ "https" if use_ssl else "http" }}://{{ site_public_url }}');
 define('WP_HOME', '{{ "https" if use_ssl else "http" }}://{{ site_public_url }}');
+{% endif %}
 
 /**#@+
  * Authentication Unique Keys and Salts.

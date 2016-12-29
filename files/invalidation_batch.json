@@ -1,0 +1,7 @@
+{
+    "Paths": {
+          "Quantity": 3,
+              "Items": ["/wp-content/themes", "/wp-content/plugins", "/wp-content/uploads"]
+                  },
+      "CallerReference": "deploy-invalidations"
+}
