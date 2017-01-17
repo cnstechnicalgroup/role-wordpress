@@ -28,6 +28,15 @@
   file: path="/home/{{ system_user }}/wpconfigs" state=directory mode=0700 owner="{{ system_user }}" group="{{ system_group }}"
   when: mode == 'stage'
 
+# wp-cli is used for automating wp admin tasks
+- name: Copy wp-cli.phar to system_user home
+  copy:
+    src: wp-cli.phar
+    dest: "/home/{{ system_user }}/wp"
+    owner: "{{ system_user }}"
+    group: "{{ system_group }}"
+    mode: 0775
+
 - name: Copy aws deploy key
   action: copy src="{{ wordpress_deploy_key }}" dest="/home/{{ system_user }}/.ssh/id_rsa" owner="{{ system_user }}" group="{{ system_group }}" mode=0600
   when: mode == 'dev'
