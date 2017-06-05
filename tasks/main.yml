@@ -38,7 +38,12 @@
     mode: 0775
 
 - name: Copy aws deploy key
-  action: copy src="{{ wordpress_deploy_key }}" dest="/home/{{ system_user }}/.ssh/id_rsa" owner="{{ system_user }}" group="{{ system_group }}" mode=0600
+  template: 
+    src: wordpress_deploy_key.j2
+    dest: "/home/{{ system_user }}/.ssh/id_rsa"
+    owner: "{{ system_user }}"
+    group: "{{ system_group }}"
+    mode: 0600
   when: mode == 'dev'
 
 - name: gitconfig template
@@ -46,7 +51,7 @@
   when: mode == 'dev'
 
 - name: Create installation folder (web_root)
-  file: path="{{ web_root }}" owner="{{ system_user }}" group="{{ system_group }}" state=directory recurse=yes mode='u=rwX,g=rwX,o=rX'
+  file: path="{{ web_root }}" owner="{{ system_user }}" group="{{ system_group }}" state=directory mode='u=rwX,g=rwX,o=r'
 
 - name: git checkout repository for site
   git: repo="{{ gitrepo }}"
@@ -58,13 +63,19 @@
        key_file="/home/{{ system_user }}/.ssh/id_rsa"
   when: mode == 'dev'
 
-- name: chown web files to system user
+
+- name: chown web files to system user and set permissions
   file:
     path: "{{ web_root }}"
     recurse: yes
+    mode: u=rwX,g=rX,o=rX
     owner: "{{ system_user }}"
     group: "{{ system_user }}"
   when: mode == 'dev'
+
+- name: Fetch random salts for WordPress config
+  local_action: command curl https://api.wordpress.org/secret-key/1.1/salt/
+  register: "wp_salt"
 
 - name: Create app config file (stage / prod)
   template:
@@ -73,34 +84,52 @@
     owner: "{{ system_user }}"
     group: "{{ system_group }}"
   with_dict: "{{ db_hosts }}"
-  when: db_hosts is defined 
-
-- name: Copy CloudFront invalidation batch json
-  action: copy src=invalidation_batch.json dest="/home/{{ system_user }}/invalidation_batch.json" owner="{{ system_user }}" group="{{ system_group }}"
+  when: mode == "stage" and db_hosts is defined
 
 - name: Create app config file (dev)
   template: src=wp-config.php.j2 dest="{{ web_root }}/wp-config.php" owner="{{ system_user }}" group="{{ system_group }}"
-  when: mode != "stage"
+  when: mode == 'dev'
 
 - name: Ensure wp-content/w3tc-config directory exists
   file: path="{{ web_root }}/wp-content/w3tc-config" state=directory mode=0755 owner="{{ system_user }}" group="{{ system_group }}"
+  when: mode == 'dev'
 
 - name: Create w3tc config file (stage / prod)
   template:
-    src: w3tc-config_master.json.j2 
-    dest: "/home/{{ system_user }}/wpconfigs/master-{{ item.key }}.json"
+    src: master.php.j2 
+    dest: "/home/{{ system_user }}/wpconfigs/master-{{ item.key }}.php"
     owner: "{{ system_user }}"
     group: "{{ system_group }}"
   with_dict: "{{ cdn_options }}"
-  when: cdn_options is defined 
+  when: mode == "stage" and cdn_options is defined
 
 - name: Create w3 Total Cache master config file
   template: src=master.php.j2 dest="{{ web_root }}/wp-content/w3tc-config/master.php" owner="{{ system_user }}" group="{{ system_group }}"
   when: aws_s3_access_key is defined and mode == 'dev'
 
-- name: Create w3 Total Cache masteri-admin config file
+- name: Create w3 Total Cache master-admin config file
   template: src=master.php.j2 dest="{{ web_root }}/wp-content/w3tc-config/master-admin.php" owner="{{ system_user }}" group="{{ system_group }}"
-  when: aws_s3_access_key is defined
+  when: aws_s3_access_key is defined and mode == 'dev'
+
+- name: Create dev-refresh shell script
+  template:
+    src: refresh-dev.sh.j2
+    dest: "/home/{{ system_user }}/refresh-dev.sh"
+    owner: "{{ system_user }}"
+    group: "{{ system_group }}"
+    mode: 0775
+  when: mode == "dev"
+  tags: devrefreshscripts
+
+- name: Create dev-refresh php script
+  template:
+    src: refresh_dev.php.j2
+    dest: "{{ web_root }}/refresh_dev.php"
+    owner: "{{ system_user }}"
+    group: "{{ system_group }}"
+    mode: 0775
+  when: mode == "dev"
+  tags: devrefreshscripts
 
 - name: Copy post-receive.php as github post receive webhook
   template: src=post-receive.php.j2 dest="{{ web_root }}/post-receive.php" owner="{{ system_user }}" group="{{ system_group }}"
@@ -131,8 +160,23 @@
   when: mode == "dev"
   tags: "gitscripts"
 
-- name: Copy site robots.txt
-  copy: src="robots.txt" dest="{{ web_root }}/robots.txt" owner="{{ system_user }}" group="{{ system_group }}"
+- name: Copy site robots.txt (stage)
+  copy:
+    src: robots.txt
+    dest: "/home/{{ system_user }}/wpconfigs/robots.txt"
+    owner: "{{ system_user }}"
+    group: "{{ system_group }}"
+  when: mode == "stage"
+  tags:
+    - robotstxt
+
+- name: Copy site robots.txt (dev)
+  copy:
+    src: robots.txt
+    dest: "{{ web_root }}/robots.txt"
+    owner: "{{ system_user }}"
+    group: "{{ system_group }}"
+  when: mode == "dev"
   tags:
     - robotstxt
 

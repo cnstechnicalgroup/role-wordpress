@@ -258,7 +258,7 @@ return array(
 	'minify.cache.files' => array(
 		0 => 'https://ajax.googleapis.com',
 	),
-	'cdn.enabled' => true,
+	'cdn.enabled' => false,
 	'cdn.debug' => false,
 	'cdn.engine' => 'cf',
 	'cdn.uploads.enable' => true,
@@ -303,10 +303,10 @@ return array(
 	'cdn.s3.cname' => array(
 	),
 	'cdn.s3.ssl' => 'auto',
-	'cdn.cf.key' => '{{ aws_s3_access_key }}',
-	'cdn.cf.secret' => '{{ aws_s3_secret_key }}',
-	'cdn.cf.bucket' => '{{ s3bucket }}',
-	'cdn.cf.id' => '{{ cdn_subdomain }}',
+	'cdn.cf.key' => '{{ item.value.aws_key }}',
+	'cdn.cf.secret' => '{{ item.value.aws_secret }}',
+	'cdn.cf.bucket' => '{{ item.value.s3_bucket }}',
+	'cdn.cf.id' => '{{ item.value.dist_id }}',
 	'cdn.cf.cname' => array(
 	),
 	'cdn.cf.ssl' => 'auto',

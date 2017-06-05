@@ -23,7 +23,11 @@ if( isset($_SERVER['HTTP_X_FORWARDED_PROTO']) ) {
 
 // ** MySQL settings - You can get this info from your web host ** //
 /** The name of the database for WordPress */
+{% if item is defined and item.key == 'stage' %}
+define('DB_NAME', '{{ wp_db_name_stage }}');
+{% else %}
 define('DB_NAME', '{{ wp_db_name }}');
+{% endif %}
 
 /** MySQL database username */
 define('DB_USER', '{{ wp_db_user }}');
@@ -32,7 +36,7 @@ define('DB_USER', '{{ wp_db_user }}');
 define('DB_PASSWORD', '{{ wp_db_password }}');
 
 /** MySQL hostname */
-{% if item %}
+{% if item is defined %}
 define('DB_HOST', '{{ item.value }}');
 {% else %}
 define('DB_HOST', '{{ wp_db_host }}');
@@ -69,7 +73,7 @@ define('NONCE_KEY',        '{{wp_config_nonce_key}}');
 define('AUTH_SALT',        '{{wp_config_auth_salt}}');
 define('SECURE_AUTH_SALT', '{{wp_config_secure_auth_salt}}');
 define('LOGGED_IN_SALT',   '{{wp_config_logged_in_salt}}');
-define('NONCE_SALT',       '{{wp_config_none_salt}}');
+define('NONCE_SALT',       '{{wp_config_nonce_salt}}');
 
 /**#@-*/
 
