@@ -1,0 +1,26 @@
+<?php
+  // Refresh dev with prod DB data and S3 content
+  include('whitelist.php');
+  // whitelist check
+  if (in_array($_SERVER['HTTP_X_FORWARDED_FOR'], $whitelist)) {
+    if ($_POST["refresh"] == "yes") {
+      echo "<p>Refreshing DB and assets. Please wait...</p>";
+      // Sync from S3 to local
+      shell_exec("/home/{{ system_user }}/refresh-dev.sh");
+      opcache_reset();
+      echo "<p>Refresh complete.</p>";
+    }
+?>
+<html>
+  <title>Refresh Dev with Prod</title>
+  <body>
+    <form action="/refresh_dev.php" method="POST">
+      <input type="hidden" name="refresh" value="yes" />
+      <button type="submit" onClick="return confirm('This action will replace all data and uploads.\n\nThis cannot be undone. Continue?'); return false;">
+       Refresh Dev DB & assets from Prod
+      </button>
+  </body>
+</html>
+<?php
+   } // close whitelist check
+?>

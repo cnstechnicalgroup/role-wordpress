@@ -1,0 +1,36 @@
+#!/bin/bash
+
+# Sync S3 files
+mkdir -p ~/refresh/uploads;
+aws s3 sync {{ refresh_src }} {{ refresh_dest }} --quiet;
+aws s3 cp {{ refresh_root }}/{{ domain_prod }}.sql.gz ~/refresh/{{ domain_prod }}.sql.gz --quiet;
+
+# DB Details
+DEV_HOST={{ wp_db_host }};
+DB_NAME={{ wp_db_name}};
+DB_USERNAME={{ wp_db_name }};
+
+# URLs / CDN
+DEV_URL={{ domain }};
+PROD_URL="\(www\.\)\{0,1\}{{ domain_prod }}";
+DEV_CDN={{ cdn_subdomain }};
+PROD_CDN={{ cdn_subdomain_prod }};
+DEV_S3={{ s3bucket }};
+PROD_S3={{ s3bucket_prod }};
+
+# Create local dump of current DB
+mkdir -p ~/dumps;
+mysqldump -u $DB_USERNAME -h $DEV_HOST $DB_NAME > ~/dumps/$DB_NAME-dev-`date +%Y-%m-%d:%H:%M:%S`.sql;
+
+# MySQL dump / import
+DUMP_FILE=~/refresh/{{ domain_prod }}.sql;
+
+# Extract gzip SQL file
+cd ~/refresh/;
+gunzip -f {{ domain_prod }}.sql.gz;
+
+# Update SQL with dev URLs
+sed -i "/@{{ domain_prod }}/! s/$PROD_URL/$DEV_URL/g" $DUMP_FILE;
+sed -i "s/$PROD_CDN/$DEV_CDN/g" $DUMP_FILE;
+sed -i "s/$PROD_S3/$DEV_S3/g" $DUMP_FILE;
+mysql -u $DB_USERNAME -h $DEV_HOST $DB_NAME < $DUMP_FILE;
